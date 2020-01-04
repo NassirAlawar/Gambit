@@ -47,10 +47,11 @@ end
 
 local use_command = (function(command, target)
     if command == "--bundle" then
-        return (function(player, params)
-                    windower.console.write('DOING input //'..params.bundle.spell.name..' '..params.bundle.spell.target)
-                    windower.send_command('input //'..params.bundle.spell.name..' '..params.bundle.spell.target) 
-                end)
+        return (
+            function(player, params)
+                windower.console.write('DOING input //'..params.bundle.spell.name..' '..params.bundle.spell.target)
+                windower.send_command('input //'..params.bundle.spell.name..' '..params.bundle.spell.target) 
+            end)
     elseif target == nil then
         return (function() windower.send_command('input //'..command) end)
     elseif target == "me" or target == "self" then
