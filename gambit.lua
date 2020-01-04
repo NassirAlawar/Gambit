@@ -48,7 +48,7 @@ end
 local use_command = (function(command, target)
     if command == "--bundle" then
         return (function(player, params)
-					windower.console.write('DOING input //'..params.bundle.spell.name..' '..params.bundle.spell.target)
+                    windower.console.write('DOING input //'..params.bundle.spell.name..' '..params.bundle.spell.target)
                     windower.send_command('input //'..params.bundle.spell.name..' '..params.bundle.spell.target) 
                 end)
     elseif target == nil then
@@ -215,16 +215,16 @@ windower.register_event('incoming text', function(original,modified,original_mod
     --handles party chat
     if type(original) == 'string' and modified_mode == 5 then
         handleChatString(original)
-	end
+    end
 end)
 
 windower.register_event('chat message', function(message,sender,mode,gm)
     --handles tells
-	if mode == 3 or mode == 4 then
-		if type(message) == 'string' then
-			handleChatString('('..sender..') '..message)
-		end
-	end
+    if mode == 3 or mode == 4 then
+        if type(message) == 'string' then
+            handleChatString('('..sender..') '..message)
+        end
+    end
 end)
 
 windower.register_event('incoming chunk', function(id, data)
@@ -242,6 +242,6 @@ windower.register_event('incoming chunk', function(id, data)
                 end
             end
         end
-	end
+    end
 end)
 
