@@ -34,6 +34,7 @@ function chat_match_buff(required_speaker)
             if speaker == nil or speech == nil then
                 return false, params
             elseif required_speaker == nil or (required_speaker == speaker) then
+                speech = speech:lower():gsub( "%W", "" )
                 local buff = gd.buffs[speech]
                 if buff == nil then
                     return false, params
