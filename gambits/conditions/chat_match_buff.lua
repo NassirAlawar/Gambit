@@ -2,24 +2,29 @@ local M = {}
 
 local gd = require('gambits/gambit_defines')
 
-function get_highest_tier_buff(player, buff)
+function get_highest_tier_buff(player, buff, is_target_self)
     local main_job_id = player.instance.main_job_id
     local main_job_level = player.instance.main_job_level
     local sub_job_id = player.instance.sub_job_id
     local sub_job_level = player.instance.sub_job_level
     local highest = nil
+    local spell = nil
 
     for i, b in ipairs(buff) do
-        local spell = res.spells:with('name', b)
-        if spell ~= nil then
-            if ((spell.levels[main_job_id] ~= nil and spell.levels[main_job_id] <= main_job_level) or (spell.levels[sub_job_id] ~= nil and spell.levels[sub_job_id] <= sub_job_level)) then
+        spell = res.spells:with('name', b)
+        if spell ~= nil and player.spells[spell.id] then
+            if ((spell.levels[main_job_id] ~= nil and spell.levels[main_job_id] <= main_job_level) or (spell.levels[sub_job_id] ~= nil and spell.levels[sub_job_id] <= sub_job_level)) and (is_target_self or (spell.targets['Party'] ~= nil)) then
                 highest = b
                 break
             end
         end
     end
 
-    return highest
+    return highest, spell
+end
+
+function titleCase(first, rest)
+    return first:upper()..rest:lower()
 end
 
 function chat_match_buff(required_speaker)
@@ -31,18 +36,44 @@ function chat_match_buff(required_speaker)
             if params.chatStr == nil then return false, params end
             local str = params.chatStr:lower()
             local speaker, speech = string.match(str, "%((%a+)%) (.*)")
+            local target_by_id = false
+            local target_index = nil
+            local target_id = nil
             if speaker == nil or speech == nil then
                 return false, params
             elseif required_speaker == nil or (required_speaker == speaker) then
-                speech = speech:lower():gsub( "%W", "" )
+                local words = string.split(speech, " ")
+                local last_word = words[#words]:lower():gsub("%W", "")
+                speech = speech:lower():gsub("%W", "")
+                if last_word and (last_word == 't') then
+                    speaker = string.gsub(speaker, "(%a)([%w_']*)", titleCase)
+                    target_index = windower.ffxi.get_mob_by_name(speaker)['target_index']
+                    local mob = windower.ffxi.get_mob_by_index(target_index)
+                    target = mob.name
+                    target_id = mob.id
+                    speech = speech:sub(1, -2)
+                    target_by_id = true
+                elseif last_word and windower.ffxi.get_mob_by_name(last_word) then
+                    speech = speech:gsub(last_word, "")
+                    target = last_word
+                else
+                    target = speaker
+                end
+
                 local buff = gd.buffs[speech]
                 if buff == nil then
                     return false, params
                 else
                     local pms = params
                     pms.bundle['spell'] = {}
-                    pms.bundle.spell.name = get_highest_tier_buff(player, buff)
-                    pms.bundle.spell.target = speaker
+                    local buff, spell = get_highest_tier_buff(player, buff, (target == player.name))
+                    pms.bundle.spell.name = buff
+                    pms.bundle.spell.id = spell.id
+                    pms.bundle.spell.prefix = spell.prefix
+                    pms.bundle.spell.target_by_id = target_by_id
+                    pms.bundle.spell.target_id = target_id
+                    pms.bundle.spell.target_index = target_index
+                    pms.bundle.spell.target = target
                     return pms.bundle.spell.name ~= nil, pms
                 end
             else
