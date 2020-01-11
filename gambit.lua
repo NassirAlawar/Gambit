@@ -97,9 +97,11 @@ local use_command = (function(command, target)
                     local unify_prefix = {['/ma'] = '/ma', ['/magic']='/ma',['/jobability'] = '/ja',['/ja']='/ja',['/item']='/item',['/song']='/ma',
                     ['/so']='/ma',['/ninjutsu']='/ma',['/weaponskill']='/ws',['/ws']='/ws',['/ra']='/ra',['/rangedattack']='/ra',['/nin']='/ma',
                     ['/throw']='/ra',['/range']='/ra',['/shoot']='/ra',['/monsterskill']='/ms',['/ms']='/ms',['/pet']='/ja',['Monster']='Monster',['/bstpet']='/ja'}
-                    local action_packet = assemble_action_packet(params.bundle.spell.target_id, params.bundle.spell.target_index, outgoing_action_category_table[unify_prefix[params.bundle.spell.prefix]], params.bundle.spell.id, nil)
-                    windower.packets.inject_outgoing(0x1A, action_packet)
-	                windower.send_command('input /assist <me>')
+                    if params.bundle.spell.target_id and params.bundle.spell.target_index and params.bundle.spell.prefix and params.bundle.spell.id then
+                        local action_packet = assemble_action_packet(params.bundle.spell.target_id, params.bundle.spell.target_index, outgoing_action_category_table[unify_prefix[params.bundle.spell.prefix]], params.bundle.spell.id, nil)
+                        windower.packets.inject_outgoing(0x1A, action_packet)
+                        windower.send_command('input /assist <me>')
+                    end
                 else
                     windower.send_command('input //'..params.bundle.spell.name..' '..params.bundle.spell.target) 
                 end

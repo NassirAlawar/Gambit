@@ -13,7 +13,7 @@ function get_highest_tier_buff(player, buff, is_target_self)
     for i, b in ipairs(buff) do
         spell = res.spells:with('name', b)
         if spell ~= nil and player.spells[spell.id] then
-            if ((spell.levels[main_job_id] ~= nil and spell.levels[main_job_id] <= main_job_level) or (spell.levels[sub_job_id] ~= nil and spell.levels[sub_job_id] <= sub_job_level)) and (is_target_self or (spell.targets['Party'] ~= nil)) then
+            if ((spell.levels[main_job_id] ~= nil and spell.levels[main_job_id] <= main_job_level) or (spell.levels[sub_job_id] ~= nil and spell.levels[sub_job_id] <= sub_job_level)) and (is_target_self or (spell.targets['Party'] or spell.targets['Enemy'] or spell.targets['NPC'])) then
                 highest = b
                 break
             end
