@@ -18,6 +18,22 @@ local gcd_delay = 3.1
 local is_moving_delay = 1
 local player_casting = false
 
+local last_tick = os.clock()
+local gcd_timer = 0
+local first_loop = true
+local chat_q = {}
+local player = {}
+local logged_in = false
+
+player.ja_recasts = {}
+player.ma_recasts = {}
+player.instance = {}
+player.buffs = {}
+player.spells = {}
+player.self = {}
+player.is_moving = false
+player.last_move_time = 0
+
 Queue = {}
 function Queue.new ()
     return {first = 0, last = -1}
@@ -83,9 +99,74 @@ function refresh_buff_active(bufflist)
     return buffarr
 end
 
-function load_stack(filename)
+--This is taken from gearswap and modified for Gambit
+-----------------------------------------------------------------------------------
+--Name: pathsearch()
+--Args:
+---- files_list - table of strings of the file name to search.
+-----------------------------------------------------------------------------------
+--Returns:
+---- path of a valid file, if it exists. False if it doesn't.
+-----------------------------------------------------------------------------------
+function pathsearch(files_list)
+
+    -- base directory search order:
+    -- windower
+    
+    -- sub directory search order:
+    -- stacks
+    
+    local gearswap_data = windower.addon_path .. 'stacks/'
+    local gearswap_appdata = (os.getenv('APPDATA') or '') .. '/Windower/Gambit/stacks/'
+    
+    local search_path = {
+        [1] = gearswap_data,
+        [2] = gearswap_appdata,
+        [3] = gearswap_data .. player.self.name .. '/',
+        [4] = gearswap_appdata .. player.self.name .. '/',
+    }
+    
+    local user_path
+    local normal_path
+
+    for _,basepath in ipairs(search_path) do
+        if windower.dir_exists(basepath) then
+            for i,v in ipairs(files_list) do
+                if v ~= '' then
+                    if include_user_path then
+                        user_path = basepath .. include_user_path .. '/' .. v
+                    end
+                    normal_path = basepath .. v
+                    
+                    if user_path and windower.file_exists(user_path) then
+                        return user_path,basepath,v
+                    elseif normal_path and windower.file_exists(normal_path) then
+                        return normal_path,basepath,v
+                    end
+                end
+            end
+        end
+    end
+    
+    return false
+end
+
+function load_stacks()
     loaded_gambits = {}
-    local loaded_file, e = loadfile(windower.addon_path..'stacks/'..filename..'.lua')
+
+    local job_id = windower.ffxi.get_player().main_job_id
+
+    local path,base_dir,filename
+    if not path then
+        local long_job = res.jobs[job_id].english
+        local short_job = res.jobs[job_id].english_short
+        local tab = {player.self.name..'_'..short_job..'.lua',player.self.name..'-'..short_job..'.lua',
+            player.self.name..'_'..long_job..'.lua',player.self.name..'-'..long_job..'.lua',
+            player.self.name..'.lua',short_job..'.lua',long_job..'.lua','default.lua'}
+        path,base_dir,filename = pathsearch(tab)
+    end
+
+    local loaded_file, e = loadfile(path)
     if e ~= nil then
         windower.add_to_chat(158, 'Error: '..tostring(e))
     end
@@ -112,21 +193,27 @@ function load_stack(filename)
     end
 end
 
-load_stack("test_gambits")
+windower.register_event('login', function()
+    player.self = windower.ffxi.get_mob_by_target("me")
+    load_stacks()
+    logged_in = true
+end)
 
-local last_tick = os.clock()
-local gcd_timer = 0
-local first_loop = true
-local chat_q = {}
-local player = {}
-player.ja_recasts = {}
-player.ma_recasts = {}
-player.instance = {}
-player.buffs = {}
-player.spells = {}
-player.self = {}
-player.is_moving = false
-player.last_move_time = 0
+windower.register_event('load', function()
+    player.self = windower.ffxi.get_mob_by_target("me")
+    load_stacks()
+    logged_in = true
+end)
+
+windower.register_event('logout', function()
+    logged_in = false
+    first_loop = true
+end)
+
+windower.register_event('unload', function()
+    logged_in = false
+    first_loop = true
+end)
 
 function pre_load()
     chat_q = Queue.new()
@@ -136,6 +223,7 @@ function pre_load()
 end
 
 windower.register_event('prerender', function()
+    if not logged_in then return end
     if(first_loop) then
         first_loop = false
         pre_load()
