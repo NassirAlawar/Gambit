@@ -60,13 +60,49 @@ function Queue.pop(list)
   return value
 end
 
+--Taken from Gearswap, credit to Byrthnoth
+-----------------------------------------------------------------------------------
+--Name: assemble_action_packet(target_id,target_index,category,spell_id)
+--Desc: Puts together an "action" packet (0x1A)
+--Args:
+---- target_id - The target's ID
+---- target_index - The target's index
+---- category - The action's category. (3 = MA, 7 = WS, 9 = JA, 16 = RA, 25 = MS)
+---- spell_ID - The current spell's ID
+-----------------------------------------------------------------------------------
+--Returns:
+---- string - An action packet. First four bytes are dummy bytes.
+-----------------------------------------------------------------------------------
+function assemble_action_packet(target_id,target_index,category,spell_id,arrow_offset)
+    local outstr = string.char(0x1A,0x08,0,0)
+    outstr = outstr..string.char( (target_id%256), math.floor(target_id/256)%256, math.floor( (target_id/65536)%256) , math.floor( (target_id/16777216)%256) )
+    outstr = outstr..string.char( (target_index%256), math.floor(target_index/256)%256)
+    outstr = outstr..string.char( (category%256), math.floor(category/256)%256)
+    
+    if category == 16 then
+        spell_id = 0
+    end
+        
+    outstr = outstr..string.char( (spell_id%256), math.floor(spell_id/256)%256)..string.char(0,0) .. 'fff':pack(0,0,0)
+    return outstr
+end
 
 local use_command = (function(command, target)
     if command == "--bundle" then
         return (
             function(player, params)
                 windower.console.write('DOING input //'..params.bundle.spell.name..' '..params.bundle.spell.target)
-                windower.send_command('input //'..params.bundle.spell.name..' '..params.bundle.spell.target) 
+                if params.bundle.spell.target_by_id then 
+                    local outgoing_action_category_table = {['/ma']=3,['/ws']=7,['/ja']=9,['/ra']=16,['/ms']=25}
+                    local unify_prefix = {['/ma'] = '/ma', ['/magic']='/ma',['/jobability'] = '/ja',['/ja']='/ja',['/item']='/item',['/song']='/ma',
+                    ['/so']='/ma',['/ninjutsu']='/ma',['/weaponskill']='/ws',['/ws']='/ws',['/ra']='/ra',['/rangedattack']='/ra',['/nin']='/ma',
+                    ['/throw']='/ra',['/range']='/ra',['/shoot']='/ra',['/monsterskill']='/ms',['/ms']='/ms',['/pet']='/ja',['Monster']='Monster',['/bstpet']='/ja'}
+                    local action_packet = assemble_action_packet(params.bundle.spell.target_id, params.bundle.spell.target_index, outgoing_action_category_table[unify_prefix[params.bundle.spell.prefix]], params.bundle.spell.id, nil)
+                    windower.packets.inject_outgoing(0x1A, action_packet)
+	                windower.send_command('input /assist <me>')
+                else
+                    windower.send_command('input //'..params.bundle.spell.name..' '..params.bundle.spell.target) 
+                end
             end)
     elseif target == nil then
         return (function() windower.send_command('input //'..command) end)
@@ -222,6 +258,8 @@ function pre_load()
     player.last_move_time = 0
 end
 
+lt = 0
+
 windower.register_event('prerender', function()
     if not logged_in then return end
     if(first_loop) then
@@ -230,7 +268,7 @@ windower.register_event('prerender', function()
     end
     
     local current_time = os.clock()
-    
+
     if(current_time - last_tick > 10) then
         --wonder if this is worth it, could make them reload instead
         player.spells = windower.ffxi.get_spells()
