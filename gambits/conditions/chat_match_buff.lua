@@ -2,7 +2,7 @@ local M = {}
 
 local gd = require('gambits/gambit_defines')
 
-function get_highest_tier_buff(player, buff, is_target_self)
+function get_highest_tier_buff(player, buff, is_target_self, allow_self)
     local main_job_id = player.instance.main_job_id
     local main_job_level = player.instance.main_job_level
     local sub_job_id = player.instance.sub_job_id
@@ -13,7 +13,7 @@ function get_highest_tier_buff(player, buff, is_target_self)
     for i, b in ipairs(buff) do
         spell = res.spells:with('name', b)
         if spell ~= nil and player.spells[spell.id] then
-            if ((spell.levels[main_job_id] ~= nil and spell.levels[main_job_id] <= main_job_level) or (spell.levels[sub_job_id] ~= nil and spell.levels[sub_job_id] <= sub_job_level)) and (is_target_self or (spell.targets['Party'] or spell.targets['Enemy'] or spell.targets['NPC'])) then
+            if ((spell.levels[main_job_id] ~= nil and spell.levels[main_job_id] <= main_job_level) or (spell.levels[sub_job_id] ~= nil and spell.levels[sub_job_id] <= sub_job_level)) and (is_target_self or allow_self or (spell.targets['Party'] or spell.targets['Enemy'] or spell.targets['NPC'])) then
                 highest = b
                 break
             end
@@ -39,6 +39,7 @@ function chat_match_buff(required_speaker)
             local target_by_id = false
             local target_index = nil
             local target_id = nil
+            local allow_self = false
             if speaker == nil or speech == nil then
                 return false, params
             elseif required_speaker == nil or (required_speaker == speaker) then
@@ -58,6 +59,7 @@ function chat_match_buff(required_speaker)
                     target = last_word
                 else
                     target = speaker
+                    allow_self = true
                 end
 
                 local buff = gd.buffs[speech]
@@ -66,7 +68,10 @@ function chat_match_buff(required_speaker)
                 else
                     local pms = params
                     pms.bundle['spell'] = {}
-                    local buff, spell = get_highest_tier_buff(player, buff, (target == player.name))
+                    local buff, spell = get_highest_tier_buff(player, buff, (target == player.self.name), allow_self)
+                    if allow_self and spell.targets['Party'] == nil then
+                        target = player.self.name
+                    end
                     pms.bundle.spell.name = buff
                     pms.bundle.spell.id = spell.id
                     pms.bundle.spell.prefix = spell.prefix
