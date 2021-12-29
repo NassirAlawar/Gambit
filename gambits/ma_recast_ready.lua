@@ -2,7 +2,7 @@ res = require('resources')
 gd = require('gambits/gambit_defines')
 local M = {}
 
-function ma_recast_ready(spell_name, action, target)
+function cond(spell_name, action, target)
     local obj = {
         trigger_type = gd.trigger_types.trigger,
         proc = (function()
@@ -19,6 +19,6 @@ function ma_recast_ready(spell_name, action, target)
     return obj
 end
 
-M.ma_recast_ready = ma_recast_ready
+M.cond = cond
 
 return M

@@ -24,6 +24,8 @@ local first_loop = true
 local chat_q = {}
 local player = {}
 local logged_in = false
+local g_bundle = {}
+g_bundle.conditions = {}
 
 player.ja_recasts = {}
 player.ma_recasts = {}
@@ -58,6 +60,28 @@ function Queue.pop(list)
   list[first] = nil        -- to allow garbage collection
   list.first = first + 1
   return value
+end
+
+-- Save copied tables in `copies`, indexed by original table.
+function deepcopy(orig, copies)
+    copies = copies or {}
+    local orig_type = type(orig)
+    local copy
+    if orig_type == 'table' then
+        if copies[orig] then
+            copy = copies[orig]
+        else
+            copy = {}
+            copies[orig] = copy
+            for orig_key, orig_value in next, orig, nil do
+                copy[deepcopy(orig_key, copies)] = deepcopy(orig_value, copies)
+            end
+            setmetatable(copy, deepcopy(getmetatable(orig), copies))
+        end
+    else -- number, string, boolean, etc
+        copy = orig
+    end
+    return copy
 end
 
 --Taken from Gearswap, credit to Byrthnoth
@@ -112,7 +136,16 @@ local use_command = (function(command, target)
         return (function() windower.send_command('input //'..command..' <me>') end)
     elseif target == "t" or target == "target" then
         return (function() windower.send_command('input //'..command..' <t>') end)
-    end
+    elseif target ~= nil then
+		return (function() windower.send_command('input //'..command..' '..target) end)
+	end
+end)
+
+local set_global_condition = (function(variable_name, value)
+    return (function()
+        windower.add_to_chat(128, "Setting "..tostring(variable_name).."="..tostring(value))
+        g_bundle.conditions[variable_name] = value
+    end)
 end)
 
 --taken from Byrth, GearSwap
@@ -205,8 +238,10 @@ function load_stacks()
     end
 
     local loaded_file, e = loadfile(path)
-    if e ~= nil then
+    if e ~= nil or loaded_file == nil then
         windower.add_to_chat(158, 'Error: '..tostring(e))
+    else
+        print('Gambit: Loaded '..filename..' file.')
     end
     local file_env = {
         require = require,
@@ -215,13 +250,14 @@ function load_stacks()
         table = table,
         windower = windower,
         use_command = use_command,
+        set_global_condition = set_global_condition,
         res = res,
         var_cache = var_cache
     }
     setfenv(loaded_file, file_env)
     local status, plugin = pcall(loaded_file)
     if status ~= nil and not status then
-        windower.add_to_chat(158, 'Failed to load file')
+        windower.add_to_chat(158, 'Failed to load file '..plugin)
     end
     registered_gambits = file_env.registered_gambits
     for i, gbt in ipairs(registered_gambits) do
@@ -285,6 +321,11 @@ windower.register_event('prerender', function()
         player.buffs = refresh_buff_active(player.instance['buffs'])
         local oldSelf = player.self
         player.self = windower.ffxi.get_mob_by_target("me")
+        if player.self ~= nil and player.self.pet_index ~= nil then
+            player.pet = windower.ffxi.get_mob_by_index(player.self.pet_index)
+        else
+            player.pet = nil
+        end
         
         local posChange = (oldSelf.x ~= player.self.x or oldSelf.z ~= player.self.z)
         if posChange then
@@ -294,8 +335,9 @@ windower.register_event('prerender', function()
             local dt_last_move = last_tick - player.last_move_time
             player.is_moving = dt_last_move < is_moving_delay
         end
-        
+        local msgsToPop = 0
         for i, gamb in ipairs(loaded_gambits) do
+            local tmp_chat_q = deepcopy(chat_q)
             --simple timed triggers
             if(gamb.trigger_type == gd.trigger_types.timed) then
                 if gamb.should_proc() then
@@ -306,24 +348,40 @@ windower.register_event('prerender', function()
                 local dequeued = nil
                 local msgCount = 0
                 local params = {}
+                params.g_bundle = g_bundle
                 repeat
                     --need to handle chat log messages here
-                    dequeued = Queue.pop(chat_q)
+                    dequeued = Queue.pop(tmp_chat_q)
                     params.chatStr = dequeued
                     --bundle is reset. This gives each gambit the ability to pass temp data unique to this iteration
                     params.bundle = {}
                     local pr, pm = gamb.should_proc(player, params)
                     params = pm
                     if pr then
+                        if gamb.after_proc then
+                            local para = gamb.after_proc(player, params)
+                            g_bundle = para.g_bundle
+                        end
                         if(gamb.proc(player, params)) then
                             gcd_timer = current_time + gcd_delay
+                            msgsToPop = msgCount + 1
+                            while msgsToPop > 0 do
+                                Queue.pop(chat_q)
+                                msgsToPop = msgsToPop - 1
+                            end
+
                             return
                         end
                     end
                     msgCount = msgCount + 1
                     --limit this loop to 10 messages so rendering is not blocked
                 until(dequeued == nil or msgCount >= 10)
+                msgsToPop = msgCount
             end
+        end
+        while msgsToPop > 0 do
+            Queue.pop(chat_q)
+            msgsToPop = msgsToPop - 1
         end
     end
 end)

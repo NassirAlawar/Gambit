@@ -1,28 +1,28 @@
 local M = {}
 
-function chat_match_cond(text, required_speaker)
+function cond(text, required_speaker)
     text = text:lower()
     local obj = {
         initalize_condition = (function()
         end),
         should_proc = (function(player, params)
-            if params == nil then return false end
-            if params.chatStr == nil then return false end
+            if params == nil then return false, params end
+            if params.chatStr == nil then return false, params end
             local str = params.chatStr:lower()
             local speaker, speech = string.match(str, "%((%a+)%) (.*)")
             if required_speaker ~= nil then
-                if speaker ~= nil then return false end
-                if speaker ~= required_speaker then return false end
-                return (speech == text)
+                if speaker ~= nil then return false, params end
+                if speaker ~= required_speaker then return false, params end
+                return (speech == text), params
             else
-                if speech == nil then return false end
-                return (speech == text)
+                if speech == nil then return false, params end
+                return (speech == text), params
             end
         end)
     }
     return obj
 end
 
-M.chat_match_cond = chat_match_cond
+M.cond = cond
 
 return M

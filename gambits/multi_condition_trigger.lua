@@ -1,7 +1,7 @@
 gd = require('gambits/gambit_defines')
 local M = {}
 
-function multi_condition_trigger(conditions, action, target)
+function cond(conditions, action, target)
     local obj = {
         trigger_type = gd.trigger_types.trigger,
         proc = (function(player, params)
@@ -9,15 +9,15 @@ function multi_condition_trigger(conditions, action, target)
             return true
         end),
         initalize_gambit = (function()
-            for i, cond in ipairs(conditions) do
-                cond.initalize_condition()
+            for i, condition in ipairs(conditions) do
+                condition.initalize_condition()
             end
         end),
         should_proc = (function(player, params)
             local good_to_go = true
             local pms = params
-            for i, cond in ipairs(conditions) do
-                local sp, pm = cond.should_proc(player, pms)
+            for i, condition in ipairs(conditions) do
+                local sp, pm = condition.should_proc(player, pms)
                 pms = pm
                 good_to_go = good_to_go and sp 
                 if not good_to_go then
@@ -25,11 +25,20 @@ function multi_condition_trigger(conditions, action, target)
                 end
             end
             return good_to_go, pms
+        end),
+        after_proc = (function(player, params) 
+            local pms = params
+            for i, condition in ipairs(conditions) do
+                if condition.after_proc ~= nil then
+                    pms = condition.after_proc(player, pms)
+                end
+            end
+            return pms
         end)
     }
     return obj
 end
 
-M.multi_condition_trigger = multi_condition_trigger
+M.cond = cond
 
 return M
