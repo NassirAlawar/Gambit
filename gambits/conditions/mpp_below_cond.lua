@@ -1,16 +1,16 @@
 local M = {}
 
-function mpp_below_cond(mpp_threshold)
+function cond(mpp_threshold)
     local obj = {
         initalize_condition = (function()
         end),
-        should_proc = (function(player)
-            return player.instance.vitals.mpp <= mpp_threshold
+        should_proc = (function(player, params)
+            return player.instance.vitals.mpp <= mpp_threshold, params
         end)
     }
     return obj
 end
 
-M.mpp_below_cond = mpp_below_cond
+M.cond = cond
 
 return M

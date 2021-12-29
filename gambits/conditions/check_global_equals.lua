@@ -1,12 +1,13 @@
 local M = {}
 
-function cond(buff_name)
-    buff_name = buff_name:lower()
+local gd = require('gambits/gambit_defines')
+
+function cond(variable_name, value)
     local obj = {
         initalize_condition = (function()
         end),
         should_proc = (function(player, params)
-            return player.buffs[buff_name] ~= nil and player.buffs[buff_name] > 0, params
+            return params.g_bundle.conditions[variable_name] == value, params
         end)
     }
     return obj

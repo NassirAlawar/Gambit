@@ -6,6 +6,7 @@ local GD = {
         chat = 3
     },
     buffs = {
+        blazespikes = {"Blaze Spikes"},
         refresh = {"Refresh III", "Refresh II", "Refresh"},
         regen = {"Regen V", "Regen IV", "Regen III", "Regen II", "Regen"},
         blink = {"Blink"},

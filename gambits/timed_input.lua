@@ -1,7 +1,7 @@
 local gd = require('gambits/gambit_defines')
 local M = {}
 
-function timed_input(input_text, start_delay, repeat_delay)
+function cond(input_text, start_delay, repeat_delay)
     local next_run = 0
     local obj = {
         trigger_type = gd.trigger_types.timed,
@@ -22,6 +22,6 @@ function timed_input(input_text, start_delay, repeat_delay)
     return obj
 end
 
-M.timed_input = timed_input
+M.cond = cond
 
 return M

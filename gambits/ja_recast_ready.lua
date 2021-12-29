@@ -1,7 +1,7 @@
 gd = require('gambits/gambit_defines')
 local M = {}
 
-function ja_recast_ready(ability_name, action, target)
+function cond(ability_name, action, target)
     local obj = {
         trigger_type = gd.trigger_types.trigger,
         proc = (function()
@@ -18,6 +18,6 @@ function ja_recast_ready(ability_name, action, target)
     return obj
 end
 
-M.ja_recast_ready = ja_recast_ready
+M.cond = cond
 
 return M

@@ -27,7 +27,7 @@ function titleCase(first, rest)
     return first:upper()..rest:lower()
 end
 
-function chat_match_buff(required_speaker)
+function cond(required_speaker)
     local obj = {
         initalize_condition = (function()
         end),
@@ -89,6 +89,6 @@ function chat_match_buff(required_speaker)
     return obj
 end
 
-M.chat_match_buff = chat_match_buff
+M.cond = cond
 
 return M
