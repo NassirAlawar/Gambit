@@ -16,7 +16,6 @@ function cond(leader, uuid)
             return last_target_index ~= current_target_index, params
         end),
         after_proc = (function(player, params)
-            windower.add_to_chat(128, "uh")
             local mob = windower.ffxi.get_mob_by_name(leader)
             local current_target_index = mob.target_index
             params.g_bundle[uuid].last_target_index = current_target_index

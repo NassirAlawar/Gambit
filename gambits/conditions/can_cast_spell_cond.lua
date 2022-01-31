@@ -51,17 +51,16 @@ function cond(spell_name)
             
             good_to_go = good_to_go and status['en'] == "Idle" or status['en'] == "Engaged"
             good_to_go = good_to_go and not player.is_moving
-
             if good_to_go and spell.range > 0 and spell_name == "--bundle" then
                 local mob = nil
                 if params.bundle.spell.target_by_id then
                     mob = windower.ffxi.get_mob_by_index(params.bundle.spell.target_index)
                 else
-                    mob = windower.ffxi.get_mob_by_name(params.bundle.spell.target)
+                    local mob_name = params.bundle.spell.target:gsub("^%l", string.upper)
+                    mob = windower.ffxi.get_mob_by_name(mob_name)
                 end
                 good_to_go = good_to_go and (mob ~= nil and spell_distances[spell.range] ~= nil and mob.distance < spell_distances[spell.range])
             end
-            
             return good_to_go, params
         end)
     }

@@ -6,6 +6,9 @@ _addon.cmd = {'gb', 'gambit'}
 packets = require('packets')
 res = require('resources')
 local gd = require('gambits/gambit_defines')
+require('queues')
+require('sets')
+require('lists')
 
 local loaded_gambits = {}
 
@@ -22,6 +25,7 @@ local last_tick = os.clock()
 local gcd_timer = 0
 local first_loop = true
 local chat_q = {}
+local commands_q = Q{}
 local player = {}
 local logged_in = false
 local g_bundle = {}
@@ -142,9 +146,43 @@ local use_command = (function(command, target)
 end)
 
 local set_global_condition = (function(variable_name, value)
+    return (function(player, params)
+        local v = value
+        local vn = variable_name
+        if v == "--bundle" then
+            v = params.bundle.g_cond_value
+        end
+        if vn == "--bundle" then
+            vn = params.bundle.g_cond_key
+        end
+        if v == nil or vn == nil then
+            windower.add_to_chat(128, "Global Variables cannot be nil Key=Value: "..tostring(vn).."="..tostring(v))
+            return
+        end
+        windower.add_to_chat(128, "Setting "..tostring(vn).."="..tostring(v))
+        g_bundle.conditions[vn] = v
+    end)
+end)
+
+local get_global_condition = (function(variable_name)
     return (function()
-        windower.add_to_chat(128, "Setting "..tostring(variable_name).."="..tostring(value))
-        g_bundle.conditions[variable_name] = value
+        return g_bundle.conditions[variable_name]
+    end)
+end)
+
+local queue_use_commands = (function(...)
+    local commands = L{...}
+    return (function(player, params)
+        windower.add_to_chat(128, "Queued "..tostring(commands:length()).." commands.")
+        local count = 1
+        local cmd_len = commands:length()
+        while count <= cmd_len do
+            local packed = {}
+            packed.command = commands[count]
+            packed.params = params 
+            commands_q:push(packed)
+            count = count + 1
+        end
     end)
 end)
 
@@ -195,6 +233,7 @@ function pathsearch(files_list)
         [2] = gearswap_appdata,
         [3] = gearswap_data .. player.self.name .. '/',
         [4] = gearswap_appdata .. player.self.name .. '/',
+        [5] = windower.addon_path
     }
     
     local user_path
@@ -222,6 +261,48 @@ function pathsearch(files_list)
     return false
 end
 
+function include_user(str, load_include_in_this_table)
+    if not (type(str) == 'string') then
+        error('\nGambit: include() was passed an invalid value ('..tostring(str)..'). (must be a string)', 2)
+    end
+    
+    str = str:lower()
+    if type(package.loaded[str]) == 'table' then
+        return package.loaded[str]
+    elseif T{'pack'}:contains(str) then
+        return
+    end
+    
+    if str:sub(-4)~='.lua' then str = str..'.lua' end
+    local path, loaded_values = pathsearch({str})
+    
+    if not path then
+        error('\nGambit: Cannot find the include file ('..tostring(str)..').', 2)
+    end
+    
+    local f, err = loadfile(path)
+
+    if err ~= nil or f == nil then
+        windower.add_to_chat(158, 'Include Error: '..tostring(e))
+    else
+        --print('Gambit: Included '..tostring(f)..' file.')
+    end
+
+    if f and not err then
+        if load_include_in_this_table and type(load_include_in_this_table) == 'table' then
+            setmetatable(load_include_in_this_table, {__index=user_env._G})
+            setfenv(f, load_include_in_this_table)
+            pcall(f, load_include_in_this_table)
+            return load_include_in_this_table
+        else
+            setfenv(f,file_env)
+            return f()
+        end
+    else
+        error('\nGambit: Error loading file ('..tostring(str)..'): '..err, 2)
+    end
+end
+
 function load_stacks()
     loaded_gambits = {}
 
@@ -243,14 +324,22 @@ function load_stacks()
     else
         print('Gambit: Loaded '..filename..' file.')
     end
-    local file_env = {
+    file_env = {
+        include = include_user,
         require = require,
         ipairs = ipairs,
         string = string,
         table = table,
+        tostring=tostring,
         windower = windower,
         use_command = use_command,
         set_global_condition = set_global_condition,
+        get_global_condition = get_global_condition,
+        queue_use_commands = queue_use_commands,
+        Q = Q,
+        S = S,
+        L = L,
+        deepcopy = deepcopy,
         res = res,
         var_cache = var_cache
     }
@@ -291,12 +380,11 @@ end)
 
 function pre_load()
     chat_q = Queue.new()
+    commands_q:pop()
     player.spells = windower.ffxi.get_spells()
     player.self = windower.ffxi.get_mob_by_target("me")
     player.last_move_time = 0
 end
-
-lt = 0
 
 windower.register_event('prerender', function()
     if not logged_in then return end
@@ -311,7 +399,7 @@ windower.register_event('prerender', function()
         --wonder if this is worth it, could make them reload instead
         player.spells = windower.ffxi.get_spells()
     end
-    
+
     if (current_time - last_tick) > 0.1 and (current_time > gcd_timer) and not player_casting then
         last_tick = os.clock()
         
@@ -326,7 +414,9 @@ windower.register_event('prerender', function()
         else
             player.pet = nil
         end
-        
+        if oldSelf == nil then
+            return ---------------------------------------------------- ADDED THIS
+        end
         local posChange = (oldSelf.x ~= player.self.x or oldSelf.z ~= player.self.z)
         if posChange then
             player.last_move_time = last_tick
@@ -335,6 +425,14 @@ windower.register_event('prerender', function()
             local dt_last_move = last_tick - player.last_move_time
             player.is_moving = dt_last_move < is_moving_delay
         end
+
+        local dequeued_command = commands_q:pop()
+        if dequeued_command ~= nil and dequeued_command.command ~= nil then
+            gcd_timer = current_time + gcd_delay
+            dequeued_command.command(player, dequeued_command.params)
+            return
+        end
+
         local msgsToPop = 0
         for i, gamb in ipairs(loaded_gambits) do
             local tmp_chat_q = deepcopy(chat_q)
@@ -364,6 +462,10 @@ windower.register_event('prerender', function()
                         end
                         if(gamb.proc(player, params)) then
                             gcd_timer = current_time + gcd_delay
+                            local first_cmd = commands_q:pop()
+                            if first_cmd ~= nil and first_cmd.command ~= nil then
+                                first_cmd.command(player, first_cmd.params)
+                            end
                             msgsToPop = msgCount + 1
                             while msgsToPop > 0 do
                                 Queue.pop(chat_q)
@@ -414,7 +516,24 @@ windower.register_event('chat message', function(message,sender,mode,gm)
     end
 end)
 
+windower.register_event('outgoing chunk', function(id, data, modified, injected, blocked)
+    local packet = packets.parse('outgoing', data)
+    if (id == 0x01A) then
+        --spell cast
+        if packet.Category == 3 then
+            gcd_timer = os.clock() + gcd_delay
+        else
+            --job ability
+            gcd_timer = os.clock() + 1.1
+        end
+    end
+end)
+
 windower.register_event('incoming chunk', function(id, data)
+    if id == 0x076 then
+        handleBuffChangePacket(data)
+        return
+    end
     if id == 0x028 then
         local action_message = packets.parse('incoming', data)
         if(action_message["Actor"] == player.self.id) then
@@ -432,3 +551,93 @@ windower.register_event('incoming chunk', function(id, data)
     end
 end)
 
+-----------------------------------------------------------------------------------
+--Name: convert_buff_list(bufflist)
+--Args:
+---- bufflist (table): List of buffs from windower.ffxi.get_player()['buffs']
+-----------------------------------------------------------------------------------
+--Returns:
+---- buffarr (table)
+---- buffarr is indexed by the string buff name and has a value equal to the number
+---- of that string present in the buff array. So two marches would give
+---- buffarr.march==2.
+-----------------------------------------------------------------------------------
+function convert_buff_list(bufflist)
+    local buffarr = {}
+    for i,id in pairs(bufflist) do
+        if res.buffs[id] then -- For some reason we always have buff 255 active, which doesn't have an entry.
+            local buff = res.buffs[id][language]:lower()
+            if buffarr[buff] then
+                buffarr[buff] = buffarr[buff] +1
+            else
+                buffarr[buff] = 1
+            end
+            
+            if buffarr[id] then
+                buffarr[id] = buffarr[id] +1
+            else
+                buffarr[id] = 1
+            end
+        end
+    end
+    return buffarr
+end
+
+function handleBuffChangePacket(data)
+    partybuffs = {}
+    for i = 0,4 do
+        if data:unpack('I',i*48+5) == 0 then
+            break
+        else
+            local index = data:unpack('H',i*48+5+4)
+            partybuffs[index] = {
+                id = data:unpack('I',i*48+5+0),
+                index = data:unpack('H',i*48+5+4),
+                buffs = {}
+            }
+            for n=1,32 do
+                partybuffs[index].buffs[n] = data:byte(i*48+5+16+n-1) + 256*( math.floor( data:byte(i*48+5+8+ math.floor((n-1)/4)) / 4^((n-1)%4) )%4)
+            end
+            
+            
+            if alliance[1] then
+                local cur_player
+                for n,m in pairs(alliance[1]) do
+                    if type(m) == 'table' and m.mob and m.mob.index == index then
+                        cur_player = m
+                        break
+                    end
+                end
+                local new_buffs = convert_buff_list(partybuffs[index].buffs)
+                if cur_player and cur_player.buffactive and not gearswap_disabled then
+                    local old_buffs = cur_player.buffactive
+                -- Make sure the character existed before (with a buffactive list) - Avoids zoning.
+                    for n,m in pairs(new_buffs) do
+                        if type(n) == 'number' and m ~= old_buffs[n] then
+                            if not old_buffs[n] or m > old_buffs[n] then -- gaining buff
+                                equip_sets('party_buff_change',nil,cur_player,res.buffs[n][language],true,copy_entry(res.buffs[n]))
+                                old_buffs[n] = nil
+                            else -- losing buff
+                                equip_sets('party_buff_change',nil,cur_player,res.buffs[n][language],false,copy_entry(res.buffs[n]))
+                                old_buffs[n] = nil
+                            end
+                        elseif type(n) ~= 'number' then
+                            -- Clear out the string entries so we don't have to iterate over them in the second loop
+                            old_buffs[n] = nil
+                        end
+                    end
+                    
+                    for n,m in pairs(old_buffs) do
+                        if type(n) == 'number' and m ~= new_buffs[n] then-- losing buff
+                            equip_sets('party_buff_change',nil,cur_player,res.buffs[n][language],false,copy_entry(res.buffs[n]))
+                        end
+                    end
+                end
+                if cur_player then
+                    cur_player.buffactive = new_buffs
+                end
+            end
+            
+        end
+    end
+end

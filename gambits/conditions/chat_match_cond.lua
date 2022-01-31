@@ -11,8 +11,8 @@ function cond(text, required_speaker)
             local str = params.chatStr:lower()
             local speaker, speech = string.match(str, "%((%a+)%) (.*)")
             if required_speaker ~= nil then
-                if speaker ~= nil then return false, params end
-                if speaker ~= required_speaker then return false, params end
+                if speaker == nil then return false, params end
+                if speaker:lower() ~= required_speaker:lower() then return false, params end
                 return (speech == text), params
             else
                 if speech == nil then return false, params end
