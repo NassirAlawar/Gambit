@@ -7,10 +7,8 @@ function cond(hpp)
         initalize_condition = (function()
         end),
         should_proc = (function(player, params)
-            if player.pet == nil then
-                return false, params
-            end
-            return player.pet.hpp < hpp, params
+            local target = windower.ffxi.get_mob_by_target("t")
+            return target ~= nil and target['hpp'] < hpp, params
         end)
     }
     return obj

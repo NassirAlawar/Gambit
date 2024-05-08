@@ -1,7 +1,7 @@
 _addon.name = 'Gambit'
 _addon.author = 'Geno'
 _addon.version = '0.1.0'
-_addon.cmd = {'gb', 'gambit'}
+_addon.commands = {'gb', 'gambit'}
 
 packets = require('packets')
 res = require('resources')
@@ -18,8 +18,10 @@ local var_cache = {}
 local gcd_delay = 3.1
 --delay to wait before a character is considered no longer moving
 --this is important for casting right after moving
-local is_moving_delay = 1
+local is_moving_delay = 0.3
 local player_casting = false
+
+local paused = false
 
 local last_tick = os.clock()
 local gcd_timer = 0
@@ -120,18 +122,28 @@ local use_command = (function(command, target)
         return (
             function(player, params)
                 windower.console.write('DOING input //'..params.bundle.spell.name..' '..params.bundle.spell.target)
-                if params.bundle.spell.target_by_id then 
-                    local outgoing_action_category_table = {['/ma']=3,['/ws']=7,['/ja']=9,['/ra']=16,['/ms']=25}
-                    local unify_prefix = {['/ma'] = '/ma', ['/magic']='/ma',['/jobability'] = '/ja',['/ja']='/ja',['/item']='/item',['/song']='/ma',
+
+                local unify_prefix = {['/ma'] = '/ma', ['/magic']='/ma',['/jobability'] = '/ja',['/ja']='/ja',['/item']='/item',['/song']='/ma',
                     ['/so']='/ma',['/ninjutsu']='/ma',['/weaponskill']='/ws',['/ws']='/ws',['/ra']='/ra',['/rangedattack']='/ra',['/nin']='/ma',
                     ['/throw']='/ra',['/range']='/ra',['/shoot']='/ra',['/monsterskill']='/ms',['/ms']='/ms',['/pet']='/ja',['Monster']='Monster',['/bstpet']='/ja'}
+
+                if params.bundle.spell.target_by_id then 
+                    local outgoing_action_category_table = {['/ma']=3,['/ws']=7,['/ja']=9,['/ra']=16,['/ms']=25}
+                    
                     if params.bundle.spell.target_id and params.bundle.spell.target_index and params.bundle.spell.prefix and params.bundle.spell.id then
                         local action_packet = assemble_action_packet(params.bundle.spell.target_id, params.bundle.spell.target_index, outgoing_action_category_table[unify_prefix[params.bundle.spell.prefix]], params.bundle.spell.id, nil)
-                        windower.packets.inject_outgoing(0x1A, action_packet)
-                        windower.send_command('input /assist <me>')
+                        --windower.packets.inject_outgoing(0x1A, action_packet)
+                        windower.send_command('input '..tostring(unify_prefix[params.bundle.spell.prefix]).." "..tostring(params.bundle.spell.name).." "..tostring(params.bundle.spell.target_id))
+                        if unify_prefix[params.bundle.spell.prefix] == '/ja' then
+                            return 1.2
+                        end
+                        --windower.send_command('input /assist <me>')
                     end
                 else
                     windower.send_command('input //'..params.bundle.spell.name..' '..params.bundle.spell.target) 
+                    if unify_prefix[params.bundle.spell.prefix] == '/ja' then
+                        return 1.2
+                    end
                 end
             end)
     elseif target == nil then
@@ -157,10 +169,11 @@ local set_global_condition = (function(variable_name, value)
         end
         if v == nil or vn == nil then
             windower.add_to_chat(128, "Global Variables cannot be nil Key=Value: "..tostring(vn).."="..tostring(v))
-            return
+            return 0.1
         end
         windower.add_to_chat(128, "Setting "..tostring(vn).."="..tostring(v))
         g_bundle.conditions[vn] = v
+        return 0.1
     end)
 end)
 
@@ -173,7 +186,7 @@ end)
 local queue_use_commands = (function(...)
     local commands = L{...}
     return (function(player, params)
-        windower.add_to_chat(128, "Queued "..tostring(commands:length()).." commands.")
+        windower.add_to_chat(150, "Queued "..tostring(commands:length()).." commands.")
         local count = 1
         local cmd_len = commands:length()
         while count <= cmd_len do
@@ -183,6 +196,7 @@ local queue_use_commands = (function(...)
             commands_q:push(packed)
             count = count + 1
         end
+        return 0
     end)
 end)
 
@@ -336,12 +350,17 @@ function load_stacks()
         set_global_condition = set_global_condition,
         get_global_condition = get_global_condition,
         queue_use_commands = queue_use_commands,
+        g_bundle = g_bundle,
         Q = Q,
         S = S,
         L = L,
+        math = math,
         deepcopy = deepcopy,
+        os = os,
         res = res,
-        var_cache = var_cache
+        var_cache = var_cache,
+		type=type,
+		rawget=rawget,
     }
     setfenv(loaded_file, file_env)
     local status, plugin = pcall(loaded_file)
@@ -378,6 +397,31 @@ windower.register_event('unload', function()
     first_loop = true
 end)
 
+windower.register_event('addon command', function(command, ...)
+    command = command and command:lower() or nil
+    args = T{...}
+    table.insert(args, 1, command)
+    local next = next
+    if next(args) ~= nil then
+        if args[1] == 'stop' then
+            paused = true
+        end
+        if args[1] == 'start' then
+            paused = false
+        end
+        --gb txt Genoxd set trash jas
+        if args[1] == 'txt' then
+            table.remove(args, 1)
+            local speaker = table.remove(args, 1)
+            local text = table.concat(args, ' ')
+            local message = '('..speaker:gsub("^%l", string.upper)..') '..text
+            handleChatString(message)
+            return 
+        end
+    end
+
+end)
+
 function pre_load()
     chat_q = Queue.new()
     commands_q:pop()
@@ -387,6 +431,7 @@ function pre_load()
 end
 
 windower.register_event('prerender', function()
+    if paused then return end
     if not logged_in then return end
     if(first_loop) then
         first_loop = false
@@ -407,8 +452,10 @@ windower.register_event('prerender', function()
         player.ja_recasts = windower.ffxi.get_ability_recasts()
         player.ma_recasts = windower.ffxi.get_spell_recasts()
         player.buffs = refresh_buff_active(player.instance['buffs'])
+		player.info = windower.ffxi.get_info()
         local oldSelf = player.self
         player.self = windower.ffxi.get_mob_by_target("me")
+        if player.self == nil then return end
         if player.self ~= nil and player.self.pet_index ~= nil then
             player.pet = windower.ffxi.get_mob_by_index(player.self.pet_index)
         else
@@ -428,8 +475,13 @@ windower.register_event('prerender', function()
 
         local dequeued_command = commands_q:pop()
         if dequeued_command ~= nil and dequeued_command.command ~= nil then
-            gcd_timer = current_time + gcd_delay
-            dequeued_command.command(player, dequeued_command.params)
+            
+            local delay = dequeued_command.command(player, dequeued_command.params)
+            if delay ~=nil then
+                gcd_timer = current_time + delay
+            else
+                gcd_timer = current_time + gcd_delay
+            end
             return
         end
 
@@ -464,7 +516,10 @@ windower.register_event('prerender', function()
                             gcd_timer = current_time + gcd_delay
                             local first_cmd = commands_q:pop()
                             if first_cmd ~= nil and first_cmd.command ~= nil then
-                                first_cmd.command(player, first_cmd.params)
+                                local delay = first_cmd.command(player, first_cmd.params)
+                                if delay ~= nil then
+                                    gcd_timer = current_time + delay
+                                end
                             end
                             msgsToPop = msgCount + 1
                             while msgsToPop > 0 do
@@ -551,6 +606,10 @@ windower.register_event('incoming chunk', function(id, data)
     end
 end)
 
+windower.register_event('zone change', function(new_id, old_id)
+    windower.send_command('input //lua u gambit')
+end)
+
 -----------------------------------------------------------------------------------
 --Name: convert_buff_list(bufflist)
 --Args:
@@ -566,7 +625,7 @@ function convert_buff_list(bufflist)
     local buffarr = {}
     for i,id in pairs(bufflist) do
         if res.buffs[id] then -- For some reason we always have buff 255 active, which doesn't have an entry.
-            local buff = res.buffs[id][language]:lower()
+            local buff = res.buffs[id]['en']:lower()
             if buffarr[buff] then
                 buffarr[buff] = buffarr[buff] +1
             else
@@ -585,6 +644,7 @@ end
 
 function handleBuffChangePacket(data)
     partybuffs = {}
+    --windower.add_to_chat(128, 'pkt')
     for i = 0,4 do
         if data:unpack('I',i*48+5) == 0 then
             break
@@ -598,9 +658,15 @@ function handleBuffChangePacket(data)
             for n=1,32 do
                 partybuffs[index].buffs[n] = data:byte(i*48+5+16+n-1) + 256*( math.floor( data:byte(i*48+5+8+ math.floor((n-1)/4)) / 4^((n-1)%4) )%4)
             end
+            --windower.add_to_chat(128, "Index: "..tostring(index))
+            local mob = windower.ffxi.get_mob_by_index(index)
+            --windower.add_to_chat(128, "Mob: "..tostring(mob.name))
+            local new_buffs = convert_buff_list(partybuffs[index].buffs)
+            for k, v in pairs(new_buffs) do
+                --windower.add_to_chat(128, "Buff Pkt: "..tostring(k)..':'..tostring(v))
+            end
             
-            
-            if alliance[1] then
+            --[[ if alliance[1] then
                 local cur_player
                 for n,m in pairs(alliance[1]) do
                     if type(m) == 'table' and m.mob and m.mob.index == index then
@@ -608,36 +674,12 @@ function handleBuffChangePacket(data)
                         break
                     end
                 end
-                local new_buffs = convert_buff_list(partybuffs[index].buffs)
-                if cur_player and cur_player.buffactive and not gearswap_disabled then
-                    local old_buffs = cur_player.buffactive
-                -- Make sure the character existed before (with a buffactive list) - Avoids zoning.
-                    for n,m in pairs(new_buffs) do
-                        if type(n) == 'number' and m ~= old_buffs[n] then
-                            if not old_buffs[n] or m > old_buffs[n] then -- gaining buff
-                                equip_sets('party_buff_change',nil,cur_player,res.buffs[n][language],true,copy_entry(res.buffs[n]))
-                                old_buffs[n] = nil
-                            else -- losing buff
-                                equip_sets('party_buff_change',nil,cur_player,res.buffs[n][language],false,copy_entry(res.buffs[n]))
-                                old_buffs[n] = nil
-                            end
-                        elseif type(n) ~= 'number' then
-                            -- Clear out the string entries so we don't have to iterate over them in the second loop
-                            old_buffs[n] = nil
-                        end
-                    end
-                    
-                    for n,m in pairs(old_buffs) do
-                        if type(n) == 'number' and m ~= new_buffs[n] then-- losing buff
-                            equip_sets('party_buff_change',nil,cur_player,res.buffs[n][language],false,copy_entry(res.buffs[n]))
-                        end
-                    end
-                end
+                
                 if cur_player then
-                    cur_player.buffactive = new_buffs
+                    --cur_player.buffactive = new_buffs
                 end
             end
-            
+            --]]
         end
     end
 end

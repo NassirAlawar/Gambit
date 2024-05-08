@@ -2,7 +2,8 @@ local M = {}
 
 local gd = require('gambits/gambit_defines')
 
-function get_highest_tier_buff(player, buff, is_target_self, allow_self)
+local l_funcs = {}
+l_funcs.get_highest_tier_buff = function (player, buff, is_target_self, allow_self)
     local main_job_id = player.instance.main_job_id
     local main_job_level = player.instance.main_job_level
     local sub_job_id = player.instance.sub_job_id
@@ -68,7 +69,7 @@ function cond(required_speaker)
                 else
                     local pms = params
                     pms.bundle['spell'] = {}
-                    local buff, spell = get_highest_tier_buff(player, buff, (target == player.self.name), allow_self)
+                    local buff, spell = l_funcs.get_highest_tier_buff(player, buff, (target == player.self.name), allow_self)
                     if allow_self and spell.targets['Party'] == nil then
                         target = player.self.name
                     end

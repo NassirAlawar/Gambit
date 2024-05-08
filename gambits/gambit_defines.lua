@@ -219,6 +219,8 @@ local GD = {
         min = {"Valor Minuet V", "Valor Minuet IV", "Valor Minuet III", "Valor Minuet II", "Valor Minuet"},
         minuet = {"Valor Minuet V", "Valor Minuet IV", "Valor Minuet III", "Valor Minuet II", "Valor Minuet"},
         march = {"Honor March", "Victory March", "Advancing March"},
+        aria = {"Aria of Passion"},
+        passion = {"Aria of Passion"},
     }
 }
 

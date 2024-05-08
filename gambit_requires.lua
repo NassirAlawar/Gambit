@@ -16,6 +16,7 @@ local Gambits = {
     chat_match_buff = include('gambits/conditions/chat_match_buff'),
     pet_in_range_to_target = include('gambits/conditions/pet_in_range_to_target_cond'),
     pet_not_in_range_to_target = include('gambits/conditions/pet_not_in_range_to_target_cond'),
+    pet_in_range_to_target = include('gambits/conditions/pet_in_range_to_target_cond'),
     ja_recast_ready_cond = include('gambits/conditions/ja_recast_ready_cond'),
     does_not_have_pet = include('gambits/conditions/does_not_have_pet_cond'),
     bundle_set_spell = include('gambits/conditions/bundle_set_spell'),
@@ -23,13 +24,20 @@ local Gambits = {
     leader_target_changed_cond = include('gambits/conditions/leader_target_changed_cond'),
     has_pet = include('gambits/conditions/has_pet_cond'),
     check_global_equals = include('gambits/conditions/check_global_equals'),
+    is_engaged = include('gambits/conditions/is_engaged'),
     leader_is_engaged = include('gambits/conditions/leader_is_engaged'),
     pet_hpp_below = include('gambits/conditions/pet_hpp_below_cond'),
+    pet_hpp_above = include('gambits/conditions/pet_hpp_above_cond'),
     chat_match_part = include('gambits/conditions/chat_match_part_cond'),
     chat_extract_part = include('gambits/conditions/chat_extract_part_cond'),
     bundle_set_spell_target = include('gambits/conditions/bundle_set_spell_target'),
     bundle_set_brd_spell = include('gambits/conditions/bundle_set_brd_spell'),
     handle_bard_songs = include('gambits/handle_bard_songs'),
+    bundle_set_target_to_leaders_target = include('gambits/conditions/bundle_set_target_to_leaders_target'),
+    bundle_pick_highest_tier_buff = include('gambits/conditions/bundle_pick_highest_tier_buff'),
+    chat_translate_buff = include('gambits/conditions/chat_translate_buff'),
+    target_hpp_below = include('gambits/conditions/target_hpp_below_cond'),
+    once_per_fight = include('gambits/conditions/once_per_fight_cond')
 }
 
 return Gambits

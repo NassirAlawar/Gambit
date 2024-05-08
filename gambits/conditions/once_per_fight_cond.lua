@@ -2,7 +2,7 @@ local M = {}
 
 local gd = require('gambits/gambit_defines')
 
-function cond(leader, uuid)
+function cond(uuid)
     local obj = {
         initalize_condition = (function()
         end),
@@ -12,25 +12,16 @@ function cond(leader, uuid)
             end
             local last_target_index = params.g_bundle[uuid].last_target_index
 
-            local name = leader
-            if type(name) == 'function' then
-                name = name()
-            end
-            name = (name:gsub("^%l", string.upper))
-
-            local mob = windower.ffxi.get_mob_by_name(name)
-            local current_target_index = mob.target_index
-            return last_target_index ~= current_target_index, params
+            local lmob = windower.ffxi.get_player()
+            local ltarget = windower.ffxi.get_mob_by_target("t")
+            -- lmob['status'] == 1 is: leader is engaged
+            -- ltarget['claim_id'] ~= 0: the leaders target is claimed
+            local current_target_index = lmob.target_index
+            
+            return lmob['status'] == 1 and ltarget ~= nil and ltarget['claim_id'] ~= 0 and last_target_index ~= current_target_index, params
         end),
         after_proc = (function(player, params)
-            
-            local name = leader
-            if type(name) == 'function' then
-                name = name()
-            end
-            name = (name:gsub("^%l", string.upper))
-
-            local mob = windower.ffxi.get_mob_by_name(name)
+            local mob = windower.ffxi.get_player()
             local current_target_index = mob.target_index
             params.g_bundle[uuid].last_target_index = current_target_index
             return params

@@ -3,7 +3,7 @@ local M = {}
 local gd = require('gambits/gambit_defines')
 
 local l_funcs = {}
-l_funcs.get_highest_tier_buff = function(player, buff, is_target_self, allow_self)
+l_funcs.get_highest_tier_buff = function (player, buff, is_target_self, allow_self)
     local main_job_id = player.instance.main_job_id
     local main_job_level = player.instance.main_job_level
     local sub_job_id = player.instance.sub_job_id
@@ -24,31 +24,28 @@ l_funcs.get_highest_tier_buff = function(player, buff, is_target_self, allow_sel
     return highest, spell
 end
 
-function cond(var_name1, var_name2, var_name3, var_name4, var_name5, var_name6)
+function titleCase(first, rest)
+    return first:upper()..rest:lower()
+end
+
+function cond(bundle_key)
     local obj = {
         initalize_condition = (function()
         end),
         should_proc = (function(player, params)
-            local song1 = params.bundle[var_name1]
-            local song2 = params.bundle[var_name2]
-            local song3 = params.bundle[var_name3]
-            local song4 = params.bundle[var_name4]
-            local song5 = params.bundle[var_name5]
-            local song6 = params.bundle[var_name6]
-            local sn = spell_name
-            if sn == "--bundle" then
-                sn = params.bundle[var_name]
+            local buffname = params.bundle[bundle_key]
+            buffname = buffname:gsub("-","")
+            buffname = buffname:gsub(" ","")
+            buffname = gd.buffs[buffname]
+            if buffname == nil then
+                return false, params
             end
-            local buff = gd.buffs[sn]
-            local _, spell = l_funcs.get_highest_tier_buff(player, buff, (target == player.self.name), true)
-            local pms = params
 
-            pms.bundle['spell'] = {}
-            pms.bundle.spell.name = spell.name
-            pms.bundle.spell.id = spell.id
-            pms.bundle.spell.prefix = spell.prefix
+            local buff, spell = l_funcs.get_highest_tier_buff(player, buffname, true, true)
 
-            return true, pms
+            params.bundle[bundle_key] = buff
+
+            return buff ~= nil, params
         end)
     }
     return obj

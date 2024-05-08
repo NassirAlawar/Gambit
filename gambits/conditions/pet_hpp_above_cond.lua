@@ -10,7 +10,7 @@ function cond(hpp)
             if player.pet == nil then
                 return false, params
             end
-            return player.pet.hpp < hpp, params
+            return player.pet.hpp > hpp, params
         end)
     }
     return obj

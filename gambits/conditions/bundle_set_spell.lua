@@ -11,9 +11,16 @@ function cond(spell_name, var_name)
             if sn == "--global" then
                 sn = get_global_condition(var_name)()
             end
+			
+			sn = sn:lower()
             
-            local spell = res.spells:with('name', sn)
-            local pms = params
+            local spell = res.spells:map((function(val)
+				local v = val
+				v.lowerName = v.name:lower()
+				return v
+			end)):with('lowerName', sn)
+            
+			local pms = params
 
             pms.bundle['spell'] = {}
             pms.bundle.spell.name = spell.name

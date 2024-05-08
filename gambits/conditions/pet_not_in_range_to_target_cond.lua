@@ -11,7 +11,13 @@ function cond(target_name, max_distance, useTargetOfTarget)
                 return false, params
             end
             
-            local target = windower.ffxi.get_mob_by_name(target_name)
+            local name = target_name
+            if type(name) == 'function' then
+                name = name()
+            end
+            name = (name:gsub("^%l", string.upper))
+
+            local target = windower.ffxi.get_mob_by_name(name)
             if target == nil then
                 return false, params
             end
