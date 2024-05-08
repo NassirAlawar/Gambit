@@ -17,16 +17,9 @@ function cond(target_name)
 
             local spell = res.spells:with('id', pms.bundle.spell.id)
 
-            local name = target_name
-            if type(name) == 'function' then
-                name = name()
-            end
-            name = (name:gsub("^%l", string.upper))
-
             -- If needs to be cast on a monster
             if spell.targets['Enemy'] ~= nil then
-
-                local mob = windower.ffxi.get_mob_by_name(name)
+                local mob = windower.ffxi.get_mob_by_name(target_name)
                 if mob ~= nil then
                     target_index = mob['target_index']
                     if target_index ~= nil then
@@ -42,11 +35,6 @@ function cond(target_name)
                         end
                     end
                 end
-            else
-                -- This can be cast on a player
-                target_by_id =  false
-                target = name
-                success = true
             end
 
             pms.bundle.spell.target_by_id = target_by_id

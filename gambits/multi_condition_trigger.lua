@@ -26,7 +26,7 @@ function cond(conditions, action, target)
             end
             return good_to_go, pms
         end),
-        after_proc = (function(player, params) 
+        after_proc = (function(player, params)
             local pms = params
             for i, condition in ipairs(conditions) do
                 if condition.after_proc ~= nil then

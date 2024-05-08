@@ -69,7 +69,7 @@ blocked_cities =
 	[2] = {name='Mordion Gaol'}
 }
 
-function cond(spell_name, cast_while_moving)
+function cond(spell_name)
     local obj = {
         initalize_condition = (function()
         end),
@@ -88,7 +88,6 @@ function cond(spell_name, cast_while_moving)
 			local zone = res.zones[player.info.zone]
             
             local good_to_go = true
-            good_to_go = good_to_go and (player.instance.vitals.hp > 0)
             good_to_go = good_to_go and (player.ma_recasts[spell.id] == 0)
             good_to_go = good_to_go and ((spell.levels[main_job_id] ~= nil and spell.levels[main_job_id] <= main_job_level) or (spell.levels[sub_job_id] ~= nil and spell.levels[sub_job_id] <= sub_job_level))
             good_to_go = good_to_go and (player.instance.vitals.mp >= spell.mp_cost)
@@ -103,12 +102,12 @@ function cond(spell_name, cast_while_moving)
             good_to_go = good_to_go and player.buffs["Omerta"] == nil
 			good_to_go = good_to_go and player.buffs["Chocobo"] == nil
 			
-			good_to_go = good_to_go and not table.contains(blocked_cities, zone.en)
+			good_to_go = good_to_go and table.contains(blocked_cities, zone.en)
 			good_to_go = good_to_go and not (spell.type == 'Geomancy' and table.contains(restricted_cities, zone.en))
 			good_to_go = good_to_go and not (spell.type == 'SummonerPact' and table.contains(restricted_cities, zone.en))
             
             good_to_go = good_to_go and status['en'] == "Idle" or status['en'] == "Engaged"
-            good_to_go = good_to_go and (not player.is_moving) or (cast_while_moving ~= nil and cast_while_moving)
+            good_to_go = good_to_go and not player.is_moving
             if good_to_go and spell.range > 0 and spell_name == "--bundle" then
                 local mob = nil
                 if params.bundle.spell.target_by_id then

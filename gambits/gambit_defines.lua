@@ -213,6 +213,14 @@ local GD = {
         geopara = {"Geo-Paralysis"},
         geogravity = {"Geo-Gravity"},
         geograv = {"Geo-Gravity"},
+        bal = {"Mage's Ballad III", "Mage's Ballad II", "Mage's Ballad"},
+        ball = {"Mage's Ballad III", "Mage's Ballad II", "Mage's Ballad"},
+        ballad = {"Mage's Ballad III", "Mage's Ballad II", "Mage's Ballad"},
+        min = {"Valor Minuet V", "Valor Minuet IV", "Valor Minuet III", "Valor Minuet II", "Valor Minuet"},
+        minuet = {"Valor Minuet V", "Valor Minuet IV", "Valor Minuet III", "Valor Minuet II", "Valor Minuet"},
+        march = {"Honor March", "Victory March", "Advancing March"},
+        aria = {"Aria of Passion"},
+        passion = {"Aria of Passion"},
     }
 }
 
