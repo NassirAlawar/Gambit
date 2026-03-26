@@ -2,14 +2,14 @@ Gambits = include('gambit_requires')
 
 registered_gambits = {
 
-	Gambits.multi_condition_trigger.cond(
-        {
-            Gambits.is_engaged.cond(),
-            Gambits.tp_above_cond.cond(350),
-            Gambits.buff_not_active_cond.cond("Haste Samba")
-        },
-        use_command("Haste Samba", "me")
-    ),
+	-- Gambits.multi_condition_trigger.cond(
+    --     {
+    --         Gambits.is_engaged.cond(),
+    --         Gambits.tp_above_cond.cond(350),
+    --         Gambits.buff_not_active_cond.cond("Haste Samba", 1)
+    --     },
+    --     use_command("Haste Samba", "me")
+    -- ),
 
     Gambits.multi_condition_trigger.cond(
         {
@@ -19,17 +19,22 @@ registered_gambits = {
         use_command("Savage Blade", "t")
     ),
 
-    Gambits.multi_condition_trigger.cond(
-        {
-            Gambits.is_engaged.cond(),
-            Gambits.once_per_fight.cond("a2b8a469-50ee-4a63-961c-08ccf61d0a45")
-        },
-        (function()
-            windower.send_command('input //send akila //gs c attack Genoxd')
-            windower.send_command('wait 1;input //send soade //gs c attack Genoxd')
-            windower.send_command('wait 3;input //send tambur //gs c attack Genoxd')
-        end)
-    ),
+    -- Gambits.multi_condition_trigger.cond(
+    --     {
+    --         Gambits.is_engaged.cond(),
+    --         Gambits.once_per_fight.cond("a2b8a469-50ee-4a63-961c-08ccf61d0a45")
+    --     },
+    --     (function()
+    --         local target_info = windower.ffxi.get_mob_by_target('t')
+    --         if type(target_info) ~= 'table' or target_info.id == nil then
+    --             return
+    --         end
+    --         windower.send_command('input //send @others //gs c partytarget '..target_info.id..';')
+    --         windower.send_command('wait 1;input //send akila //gs c attack Genoxd')
+    --         windower.send_command('wait 2;input //send soade //gs c attack Genoxd')
+    --         windower.send_command('wait 3;input //send tambur //gs c attack Genoxd')
+    --     end)
+    -- ),
     
     --These all trigger whenever the recast is ready for the spell or ability
     --Gambits.ja_recast_ready.cond("Scavenge", use_command('Scavenge', "me"))

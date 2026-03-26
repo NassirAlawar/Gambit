@@ -8,13 +8,14 @@ l_funcs.get_highest_tier_buff = function (player, buff, is_target_self, allow_se
     local main_job_level = player.instance.main_job_level
     local sub_job_id = player.instance.sub_job_id
     local sub_job_level = player.instance.sub_job_level
+    local job_points = player.instance.job_points[res.jobs[main_job_id].ens:lower()].jp_spent
     local highest = nil
     local spell = nil
 
     for i, b in ipairs(buff) do
         spell = res.spells:with('name', b)
         if spell ~= nil and player.spells[spell.id] then
-            if ((spell.levels[main_job_id] ~= nil and spell.levels[main_job_id] <= main_job_level) or (spell.levels[sub_job_id] ~= nil and spell.levels[sub_job_id] <= sub_job_level)) and (is_target_self or allow_self or (spell.targets['Party'] or spell.targets['Enemy'] or spell.targets['NPC'])) then
+            if ((spell.levels[main_job_id] ~= nil and spell.levels[main_job_id] <= main_job_level) or (spell.levels[main_job_id] ~= nil and spell.levels[main_job_id] <= job_points) or (spell.levels[sub_job_id] ~= nil and spell.levels[sub_job_id] <= sub_job_level)) and (is_target_self or allow_self or (spell.targets['Party'] or spell.targets['Enemy'] or spell.targets['NPC'] or spell.targets['Corpse'])) then
                 highest = b
                 break
             end

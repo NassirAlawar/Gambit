@@ -19,6 +19,9 @@ function cond(text, index, required_speaker)
                 end
                 count = count + 1
             end
+            if player.self ~= nil and string.lower(speaker) == string.lower(player.self.name) then
+                return false, params
+            end
             if required_speaker ~= nil then
                 if speaker == nil then return false, params end
                 

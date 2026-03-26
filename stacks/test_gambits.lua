@@ -22,7 +22,7 @@ registered_gambits = {
         --{
             --chat_match_cond.chat_match_cond("Haste", nil),
             --can_cast_spell_cond.can_cast_spell_cond("Haste"),
-          --  buff_not_active_cond.buff_not_active_cond("Haste"),
+          --  buff_not_active_cond.buff_not_active_cond("Haste", 1),
         --},
       --  use_command("Haste", "me")
     --),
@@ -65,7 +65,7 @@ registered_gambits = {
     --If the Aftermath: Lv.3 buff is not active and TP is >= 3000 then use Garland of Bliss on <t>
     --mct.multi_condition_trigger(
       --  {
-            --buff_not_active_cond.buff_not_active_cond("Aftermath: Lv.3"),
+            --buff_not_active_cond.buff_not_active_cond("Aftermath: Lv.3", 1),
             ---tp_above_cond.tp_above_cond(3000)
         --},
         --use_command("Garland of Bliss", "t")

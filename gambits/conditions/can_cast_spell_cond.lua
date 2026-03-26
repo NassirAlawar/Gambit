@@ -78,10 +78,11 @@ function cond(spell_name, cast_while_moving)
             if name == "--bundle" then
                 name = params.bundle.spell.name:gsub("^%l", string.upper)
             end
-            
+
             local spell = res.spells:with('name', name)
             local main_job_id = player.instance.main_job_id
             local main_job_level = player.instance.main_job_level
+            local job_points = player.instance.job_points[res.jobs[main_job_id].ens:lower()].jp_spent
             local sub_job_id = player.instance.sub_job_id
             local sub_job_level = player.instance.sub_job_level
             local status = statuses[player.instance.status]
@@ -90,7 +91,7 @@ function cond(spell_name, cast_while_moving)
             local good_to_go = true
             good_to_go = good_to_go and (player.instance.vitals.hp > 0)
             good_to_go = good_to_go and (player.ma_recasts[spell.id] == 0)
-            good_to_go = good_to_go and ((spell.levels[main_job_id] ~= nil and spell.levels[main_job_id] <= main_job_level) or (spell.levels[sub_job_id] ~= nil and spell.levels[sub_job_id] <= sub_job_level))
+            good_to_go = good_to_go and ((spell.levels[main_job_id] ~= nil and spell.levels[main_job_id] <= main_job_level) or (spell.levels[main_job_id] ~= nil and spell.levels[main_job_id] <= job_points) or (spell.levels[sub_job_id] ~= nil and spell.levels[sub_job_id] <= sub_job_level))
             good_to_go = good_to_go and (player.instance.vitals.mp >= spell.mp_cost)
             
             good_to_go = good_to_go and player.buffs["silence"] == nil
@@ -107,8 +108,8 @@ function cond(spell_name, cast_while_moving)
 			good_to_go = good_to_go and not (spell.type == 'Geomancy' and table.contains(restricted_cities, zone.en))
 			good_to_go = good_to_go and not (spell.type == 'SummonerPact' and table.contains(restricted_cities, zone.en))
             
-            good_to_go = good_to_go and status['en'] == "Idle" or status['en'] == "Engaged"
-            good_to_go = good_to_go and (not player.is_moving) or (cast_while_moving ~= nil and cast_while_moving)
+            good_to_go = good_to_go and (status['en'] == "Idle" or status['en'] == "Engaged")
+            good_to_go = good_to_go and ((not player.is_moving) or (cast_while_moving ~= nil and cast_while_moving))
             if good_to_go and spell.range > 0 and spell_name == "--bundle" then
                 local mob = nil
                 if params.bundle.spell.target_by_id then

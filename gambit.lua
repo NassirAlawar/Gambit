@@ -1,14 +1,48 @@
-_addon.name = 'Gambit'
+_addon.name = 'gambit'
 _addon.author = 'Geno'
 _addon.version = '0.1.0'
 _addon.commands = {'gb', 'gambit'}
 
+require('luau')
 packets = require('packets')
 res = require('resources')
 local gd = require('gambits/gambit_defines')
 require('queues')
 require('sets')
 require('lists')
+textboxes = require('texts')
+
+
+
+
+Defaults = {}
+Defaults.display = {}
+Defaults.display.text = {}
+Defaults.display.pos = {}
+Defaults.display.pos.x = 17
+Defaults.display.pos.y = windower.get_windower_settings().y_res-250
+Defaults.display.text.font = 'Courier New'
+Defaults.display.text.red = 80
+Defaults.display.text.green = 180
+Defaults.display.text.blue = 200
+Defaults.display.text.alpha = 255
+Defaults.display.text.size = 12
+Defaults.visible = true
+Defaults.display.visible = true
+
+settings = Defaults
+
+action_box = textboxes.new('${current_string}',Defaults.display,settings)
+action_box.current_string = ''
+action_box:show()
+
+
+
+
+
+
+
+
 
 local loaded_gambits = {}
 
@@ -21,7 +55,7 @@ local gcd_delay = 3.1
 local is_moving_delay = 0.3
 local player_casting = false
 
-local paused = false
+local paused = true
 
 local last_tick = os.clock()
 local gcd_timer = 0
@@ -41,6 +75,7 @@ player.spells = {}
 player.self = {}
 player.is_moving = false
 player.last_move_time = 0
+player.party_buffs = {}
 
 Queue = {}
 function Queue.new ()
@@ -147,13 +182,13 @@ local use_command = (function(command, target)
                 end
             end)
     elseif target == nil then
-        return (function() windower.send_command('input //'..command) end)
+        return (function() windower.send_command('input //'..command) return 1.2 end)
     elseif target == "me" or target == "self" then
-        return (function() windower.send_command('input //'..command..' <me>') end)
+        return (function() windower.send_command('input //'..command..' <me>') return 1.2 end)
     elseif target == "t" or target == "target" then
-        return (function() windower.send_command('input //'..command..' <t>') end)
+        return (function() windower.send_command('input //'..command..' <t>') return 1.2 end)
     elseif target ~= nil then
-		return (function() windower.send_command('input //'..command..' '..target) end)
+		return (function() windower.send_command('input //'..command..' '..target) return 1.2 end)
 	end
 end)
 
@@ -186,7 +221,7 @@ end)
 local queue_use_commands = (function(...)
     local commands = L{...}
     return (function(player, params)
-        windower.add_to_chat(150, "Queued "..tostring(commands:length()).." commands.")
+        windower.add_to_chat(128, "Queued "..tostring(commands:length()).." commands.")
         local count = 1
         local cmd_len = commands:length()
         while count <= cmd_len do
@@ -342,6 +377,8 @@ function load_stacks()
         include = include_user,
         require = require,
         ipairs = ipairs,
+        pairs = pairs,
+        next = next,
         string = string,
         table = table,
         tostring=tostring,
@@ -350,10 +387,14 @@ function load_stacks()
         set_global_condition = set_global_condition,
         get_global_condition = get_global_condition,
         queue_use_commands = queue_use_commands,
+        get_party_member_key_by_name = get_party_member_key_by_name,
+        distance = distance,
+        range_to_distance = range_to_distance,
         g_bundle = g_bundle,
         Q = Q,
         S = S,
         L = L,
+        textboxes = textboxes,
         math = math,
         deepcopy = deepcopy,
         os = os,
@@ -445,6 +486,10 @@ windower.register_event('prerender', function()
         player.spells = windower.ffxi.get_spells()
     end
 
+    if player_casting and (current_time > gcd_timer) then
+        player_casting = false
+    end
+
     if (current_time - last_tick) > 0.1 and (current_time > gcd_timer) and not player_casting then
         last_tick = os.clock()
         
@@ -453,6 +498,7 @@ windower.register_event('prerender', function()
         player.ma_recasts = windower.ffxi.get_spell_recasts()
         player.buffs = refresh_buff_active(player.instance['buffs'])
 		player.info = windower.ffxi.get_info()
+        player.party = windower.ffxi.get_party()
         local oldSelf = player.self
         player.self = windower.ffxi.get_mob_by_target("me")
         if player.self == nil then return end
@@ -485,25 +531,26 @@ windower.register_event('prerender', function()
             return
         end
 
-        local msgsToPop = 0
+        -- run timed gambits unconditionally
         for i, gamb in ipairs(loaded_gambits) do
-            local tmp_chat_q = deepcopy(chat_q)
-            --simple timed triggers
             if(gamb.trigger_type == gd.trigger_types.timed) then
                 if gamb.should_proc() then
                     gamb.proc()
                 end
-            --complex triggers or state based
-            elseif(gamb.trigger_type == gd.trigger_types.trigger) then
-                local dequeued = nil
-                local msgCount = 0
-                local params = {}
-                params.g_bundle = g_bundle
-                repeat
-                    --need to handle chat log messages here
-                    dequeued = Queue.pop(tmp_chat_q)
-                    params.chatStr = dequeued
-                    --bundle is reset. This gives each gambit the ability to pass temp data unique to this iteration
+            end
+        end
+
+        -- process chat queue message-by-message, checking all trigger gambits per message
+        local tmp_chat_q = deepcopy(chat_q)
+        local msgsChecked = 0
+        repeat
+            local msg = Queue.pop(tmp_chat_q)
+            msgsChecked = msgsChecked + 1
+            for i, gamb in ipairs(loaded_gambits) do
+                if gamb.trigger_type == gd.trigger_types.trigger then
+                    local params = {}
+                    params.g_bundle = g_bundle
+                    params.chatStr = msg
                     params.bundle = {}
                     local pr, pm = gamb.should_proc(player, params)
                     params = pm
@@ -512,7 +559,7 @@ windower.register_event('prerender', function()
                             local para = gamb.after_proc(player, params)
                             g_bundle = para.g_bundle
                         end
-                        if(gamb.proc(player, params)) then
+                        if gamb.proc(player, params) then
                             gcd_timer = current_time + gcd_delay
                             local first_cmd = commands_q:pop()
                             if first_cmd ~= nil and first_cmd.command ~= nil then
@@ -521,24 +568,21 @@ windower.register_event('prerender', function()
                                     gcd_timer = current_time + delay
                                 end
                             end
-                            msgsToPop = msgCount + 1
-                            while msgsToPop > 0 do
+                            -- pop only this message and the unmatched ones before it
+                            for _ = 1, msgsChecked do
                                 Queue.pop(chat_q)
-                                msgsToPop = msgsToPop - 1
                             end
-
                             return
                         end
                     end
-                    msgCount = msgCount + 1
-                    --limit this loop to 10 messages so rendering is not blocked
-                until(dequeued == nil or msgCount >= 10)
-                msgsToPop = msgCount
+                end
             end
-        end
-        while msgsToPop > 0 do
+            -- no gambit matched this message; it will be popped in cleanup below
+        until(msg == nil or msgsChecked >= 10)
+
+        -- discard messages that were checked but matched nothing
+        for _ = 1, msgsChecked do
             Queue.pop(chat_q)
-            msgsToPop = msgsToPop - 1
         end
     end
 end)
@@ -556,6 +600,8 @@ function handleChatString(message)
 end
 
 windower.register_event('incoming text', function(original,modified,original_mode,modified_mode, blocked)
+    if paused then return end
+    if not logged_in then return end
     --handles party chat
     if type(original) == 'string' and modified_mode == 5 then
         handleChatString(original)
@@ -564,11 +610,13 @@ end)
 
 windower.register_event('chat message', function(message,sender,mode,gm)
     --handles tells
-    if mode == 3 or mode == 4 then
-        if type(message) == 'string' then
-            handleChatString('('..sender..') '..message)
-        end
-    end
+    -- Broken atm because of null termination in LuaCore not working properly
+    -- Use handleChatPacket for now
+    --if mode == 3 or mode == 4 then
+        --if type(message) == 'string' then
+            --handleChatString('('..sender..') '..message)
+        --end
+    --end
 end)
 
 windower.register_event('outgoing chunk', function(id, data, modified, injected, blocked)
@@ -584,7 +632,24 @@ windower.register_event('outgoing chunk', function(id, data, modified, injected,
     end
 end)
 
+function handleChatPackat(data)
+    if data == nil then return end
+    local chat_message = packets.parse('incoming', data)
+    if chat_message and chat_message.Message then
+        if chat_message.Mode == 3 or chat_message.Mode == 4 then
+            handleChatString('('..tostring(chat_message['Sender Name'])..') '..chat_message.Message)
+        end
+    end
+end
+
 windower.register_event('incoming chunk', function(id, data)
+    if paused then return end
+    if not logged_in then return end
+
+    if id == 0x017 then
+        handleChatPackat(data)
+        return
+    end
     if id == 0x076 then
         handleBuffChangePacket(data)
         return
@@ -596,6 +661,7 @@ windower.register_event('incoming chunk', function(id, data)
                 player_casting = false
                 gcd_timer = os.clock() + gcd_delay
             elseif action_message["Category"] == 8 then
+                gcd_timer = os.clock() + gcd_delay
                 player_casting = true
                 if action_message["Target 1 Action 1 Message"] == 0 then
                     player_casting = false
@@ -607,7 +673,8 @@ windower.register_event('incoming chunk', function(id, data)
 end)
 
 windower.register_event('zone change', function(new_id, old_id)
-    windower.send_command('input //lua u gambit')
+    paused = true
+    chat_q = Queue.new()
 end)
 
 -----------------------------------------------------------------------------------
@@ -643,8 +710,7 @@ function convert_buff_list(bufflist)
 end
 
 function handleBuffChangePacket(data)
-    partybuffs = {}
-    --windower.add_to_chat(128, 'pkt')
+    local partybuffs = {}
     for i = 0,4 do
         if data:unpack('I',i*48+5) == 0 then
             break
@@ -658,28 +724,53 @@ function handleBuffChangePacket(data)
             for n=1,32 do
                 partybuffs[index].buffs[n] = data:byte(i*48+5+16+n-1) + 256*( math.floor( data:byte(i*48+5+8+ math.floor((n-1)/4)) / 4^((n-1)%4) )%4)
             end
-            --windower.add_to_chat(128, "Index: "..tostring(index))
-            local mob = windower.ffxi.get_mob_by_index(index)
-            --windower.add_to_chat(128, "Mob: "..tostring(mob.name))
-            local new_buffs = convert_buff_list(partybuffs[index].buffs)
-            for k, v in pairs(new_buffs) do
-                --windower.add_to_chat(128, "Buff Pkt: "..tostring(k)..':'..tostring(v))
-            end
-            
-            --[[ if alliance[1] then
-                local cur_player
-                for n,m in pairs(alliance[1]) do
-                    if type(m) == 'table' and m.mob and m.mob.index == index then
-                        cur_player = m
-                        break
-                    end
-                end
-                
-                if cur_player then
-                    --cur_player.buffactive = new_buffs
-                end
-            end
-            --]]
+            -- index of the player can use with windower.ffxi.get_mob_by_index(index)
+            player.party_buffs[index] = convert_buff_list(partybuffs[index].buffs)
         end
     end
+end
+
+function get_party_member_key_by_name(name)
+    local party = windower.ffxi.get_party()
+    for k, v in pairs(party) do
+        if type(v) == 'table' then
+            if v.name == name then
+                return k
+            end
+        end
+    end
+    return nil
+end
+
+function distance(x1, y1, x2, y2)
+	return math.abs(math.sqrt((x1 - x2)*(x1 -x2) + (y1 - y2)*(y1 - y2)))
+end
+
+
+-- 2:      1.70        0.58824      3.4        1.07273
+-- 3?:     1.490909    0.67073      4.47273    1.28727
+-- 4:      1.44        0.69444      5.76       1.12889
+-- 5?:     1.377778    0.72581      6.88889    0.91111
+-- 6?:     1.30        0.76923      7.8        0.6
+-- 7:      1.20        0.83333      8.4        2.0
+-- 8:      1.30        0.76923     10.4        2.0
+-- 9:      1.377778    0.72581     12.4        2.1
+-- 10:     1.45        0.69444     14.5        1.9
+-- 11:     1.490909    0.67073     16.4        4.0
+-- 12:     1.70        0.58824     20.4        -
+local ability_range_map = {}
+ability_range_map[2] = 3.4
+ability_range_map[3] = 4.4
+ability_range_map[4] = 5.7
+ability_range_map[5] = 6.8
+ability_range_map[6] = 7.8
+ability_range_map[7] = 8.4
+ability_range_map[8] = 10.4
+ability_range_map[9] = 12.4
+ability_range_map[10] = 14.5
+ability_range_map[11] = 16.4
+ability_range_map[12] = 20.4
+
+function range_to_distance(range)
+    return ability_range_map[range]
 end

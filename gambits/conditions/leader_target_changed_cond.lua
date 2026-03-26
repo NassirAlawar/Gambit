@@ -19,6 +19,9 @@ function cond(leader, uuid)
             name = (name:gsub("^%l", string.upper))
 
             local mob = windower.ffxi.get_mob_by_name(name)
+            if mob == nil then 
+                return false, params
+            end
             local current_target_index = mob.target_index
             return last_target_index ~= current_target_index, params
         end),

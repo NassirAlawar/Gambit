@@ -21,8 +21,9 @@ function cond(spell_name, var_name)
 			end)):with('lowerName', sn)
             
 			local pms = params
-
-            pms.bundle['spell'] = {}
+            if pms.bundle == nil then pms.bundle = {} end
+            if pms.bundle.spell == nil then pms.bundle.spell = {} end
+            
             pms.bundle.spell.name = spell.name
             pms.bundle.spell.id = spell.id
             pms.bundle.spell.prefix = spell.prefix

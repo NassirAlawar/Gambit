@@ -7,7 +7,11 @@ function cond(ability_name, target)
         initalize_condition = (function()
         end),
         should_proc = (function(player, params)
-            local abil = res.job_abilities:with('name', ability_name)
+            local name = ability_name
+            if name == "--bundle" then
+                name = params.bundle.spell.name
+            end
+            local abil = res.job_abilities:with('name', name)
             return player.ja_recasts[abil.recast_id] == 0, params
         end)
     }
